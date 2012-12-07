@@ -7,140 +7,151 @@ from asyncmongoorm.session import Session
 
 class Manager(object):
 
-    def __init__(self, collection):
-        self.collection = collection
-    
-    @gen.engine
-    def find_one(self, query, callback):
-        result, error = yield gen.Task(Session(self.collection.__collection__).find_one, query)
-        
-        instance = None
-        if result and result[0]:
-            instance = self.collection.create(result[0])
-        
-        callback(instance) 
+	def __init__(self, collection):
+		self.collection = collection
+	
+	@gen.engine
+	def find_one(self, query, callback):
+		result, error = yield gen.Task(Session(self.collection.__collection__).find_one, query)
+		
+		instance = None
+		if result and result[0]:
+			instance = self.collection.create(result[0])
+		
+		callback(instance) 
    
-    @gen.engine
-    def find(self, query, callback, **kw):
-        result, error = yield gen.Task(Session(self.collection.__collection__).find, query, **kw)
-        items = []
+	@gen.engine
+	def find(self, query, callback, **kw):
+		result, error = yield gen.Task(Session(self.collection.__collection__).find, query, **kw)
+		items = []
 
-        if result and result[0]:
-            for item in result[0]:
-                items.append(self.collection.create(item))
+		if result and result[0]:
+			for item in result[0]:
+				items.append(self.collection.create(item))
 
-        callback(items)
+		callback(items)
 
-    @gen.engine
-    def count(self, query=None, callback=None):
-        command = {
-            "count": self.collection.__collection__
-        }
+	@gen.engine
+	def count(self, query=None, callback=None):
+		command = {
+			"count": self.collection.__collection__
+		}
 
-        if query:
-            command["query"] = query
+		if query:
+			command["query"] = query
 
-        result, error = yield gen.Task(Session().command, command)
-        
-        total = 0
-        if result and len(result) > 0 and result[0].has_key('n'):
-            total = int(result[0]['n'])
-        
-        callback(total)
+		result, error = yield gen.Task(Session().command, command)
+		
+		total = 0
+		if result and len(result) > 0 and result[0].has_key('n'):
+			total = int(result[0]['n'])
+		
+		callback(total)
 
-    @gen.engine
-    def distinct(self, key, callback, query=None):
-        """Returns a list of distinct values for the given key across collection"""
-        command = {
-            "distinct": self.collection.__collection__,
-            "key": key,
-        }
-        if query:
-            command['query'] = query
+	@gen.engine
+	def distinct(self, key, callback, query=None):
+		"""Returns a list of distinct values for the given key across collection"""
+		command = {
+			"distinct": self.collection.__collection__,
+			"key": key,
+		}
+		if query:
+			command['query'] = query
 
-        result, error = yield gen.Task(Session().command, command)
-        if error['error'] or not result or not result[0]['ok']:
-            callback(None)
-            return
+		result, error = yield gen.Task(Session().command, command)
+		if error['error'] or not result or not result[0]['ok']:
+			callback(None)
+			return
 
-        callback(result[0]['values'])
+		callback(result[0]['values'])
 
-    @gen.engine
-    def sum(self, query, field, callback):
-        command = {
-            "group": {
-                'ns': self.collection.__collection__,
-                'cond': query,
-                'initial': {'csum': 0},
-                '$reduce': 'function(obj,prev){prev.csum+=obj.'+field+';}'
-            }
-        }
+	@gen.engine
+	def sum(self, query, field, callback):
+		command = {
+			"group": {
+				'ns': self.collection.__collection__,
+				'cond': query,
+				'initial': {'csum': 0},
+				'$reduce': 'function(obj,prev){prev.csum+=obj.'+field+';}'
+			}
+		}
 
-        result, error = yield gen.Task(Session().command, command)
-        total = 0
-        
-        if result:
-            if result[0]['retval']:
-                total = result[0]['retval'][0]['csum']
+		result, error = yield gen.Task(Session().command, command)
+		total = 0
+		
+		if result:
+			if result[0]['retval']:
+				total = result[0]['retval'][0]['csum']
 
-        callback(total)
-        
-    @gen.engine
-    def geo_near(self, near, max_distance=None, num=None, spherical=None, unique_docs=None, query=None, callback=None, **kw):
+		callback(total)
+		
+	@gen.engine
+	def geo_near(self, near, max_distance=None, num=None, spherical=None, unique_docs=None, query=None, callback=None, **kw):
 
-        command = SON({"geoNear": self.collection.__collection__})
+		command = SON({"geoNear": self.collection.__collection__})
 
-        if near != None:
-            command.update({'near': near})
+		if near != None:
+			command.update({'near': near})
 
-        if query != None:
-            command.update({'query': query})
+		if query != None:
+			command.update({'query': query})
 
-        if num != None:
-            command.update({'num': num})
+		if num != None:
+			command.update({'num': num})
 
-        if max_distance != None:
-            command.update({'maxDistance': max_distance})
+		if max_distance != None:
+			command.update({'maxDistance': max_distance})
 
-        if unique_docs != None:
-            command.update({'uniqueDocs': unique_docs})
+		if unique_docs != None:
+			command.update({'uniqueDocs': unique_docs})
 
-        if spherical != None:
-            command.update({'spherical': spherical})
+		if spherical != None:
+			command.update({'spherical': spherical})
 
-        result, error = yield gen.Task(Session().command, command)
-        items = []
+		result, error = yield gen.Task(Session().command, command)
+		items = []
 
-        if result:
-            if result[0]['ok']:
-                for item in result[0]['results']:
-                    items.append(self.collection.create(item['obj']))
-        
-        callback(items)
+		if result:
+			if result[0]['ok']:
+				for item in result[0]['results']:
+					items.append(self.collection.create(item['obj']))
+		
+		callback(items)
 
-    @gen.engine
-    def map_reduce(self, map_, reduce_, callback, query=None, out=None):
-        command = SON({'mapreduce': self.collection.__collection__})
+	@gen.engine
+	def map_reduce(self, map_, reduce_, callback, query=None, out=None):
+		command = SON({'mapreduce': self.collection.__collection__})
 
-        command.update({
-            'map': map_,
-            'reduce': reduce_,
-        })
+		command.update({
+			'map': map_,
+			'reduce': reduce_,
+		})
 
-        if query is not None:
-            command.update({'query': query})
-        if out is None:
-            command.update({'out': {'inline': 1}})
+		if query is not None:
+			command.update({'query': query})
+		if out is None:
+			command.update({'out': {'inline': 1}})
 
-        result, error = yield gen.Task(Session().command, command)
-        if not result or int(result[0]['ok']) != 1:
-            callback(None)
-            return
+		result, error = yield gen.Task(Session().command, command)
+		if not result or int(result[0]['ok']) != 1:
+			callback(None)
+			return
 
-        callback(result[0]['results'])
+		callback(result[0]['results'])
 
-    @gen.engine
-    def drop(self, callback):
-        yield gen.Task(Session(self.collection.__collection__).remove)
-        
-        callback()
+	@gen.engine
+	def drop(self, callback):
+		yield gen.Task(Session(self.collection.__collection__).remove)
+		
+		callback()
+
+	@gen.engine
+	def find_and_modify(self, _query = None, _update = None, _upsert = None, _new = None, callback = None):
+		result, error = yield gen.Task(Session().command, 'findAndModify', self.collection.__collection__, query = _query, update = _update, upsert = _upsert, new = _new,)
+		if not result or int(result[0]['ok']) != 1:
+			callback(None)
+			return
+		
+		callback(self.collection.create(result[0]['value']))
+
+
